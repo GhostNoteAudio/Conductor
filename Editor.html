@@ -55,6 +55,9 @@
                     console.log(ex);
                 }
 
+                if (midiPortId === null)
+                    alert("Could not connect to MIDI Device");
+
                 if (midiPortId != null) {
                     $("#upload-button").show();
                 }
