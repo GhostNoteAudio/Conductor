@@ -1,0 +1,5 @@
+1x Raspberry Pi Pico
+2x 22uF electrolytic capacitors - 10v, 1.5mm lead spacing
+3x Alps RSA0N111900Q - https://www.mouser.co.uk/ProductDetail/Alps-Alpine/RSA0N111900Q?qs=%252BT3zGygW8fc0lbiiPTKv4A%3D%3D
+6x 6mm countersunk M3 screws, black
+3x fader caps - https://www.amazon.co.uk/gp/product/B07K629XFR/ref=ppx_yo_dt_b_asin_title_o03_s00?ie=UTF8&psc=1

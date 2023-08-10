@@ -1,0 +1,6 @@
+{
+    "board": "arduino:mbed_rp2040:pico",
+    "port": "COM10",
+    "sketch": "Firmware.ino",
+    "output": "../Build"
+}
