@@ -26,6 +26,7 @@ MIDI_CREATE_INSTANCE(Adafruit_USBD_MIDI, usb_midi, MIDI);
 
 int midiCC[3] = {0};
 int midiChannel[3] = {0};
+int minVal = 5;
 uint8_t sysexData[32];
 int sysexIdx;
 
@@ -42,11 +43,11 @@ int sliderData[9] =
   1023
 };
 
-float TranslateLog2lin(int x)
-{
-    if (x >= 1023)
-        return 1023.0f;
-    
+float TranslateLog2lin(float x)
+{    
+    if (x < 0) x = 0;
+    if (x > 1023) x = 1023;
+
     for (int i=0; i < 8; i++)
     {
         if (x >= sliderData[i] && x < sliderData[i+1])
@@ -79,6 +80,10 @@ void printSettings()
     Serial.print(", ");
     Serial.print(midiChannel[2]);
     Serial.println("");
+
+    Serial.print("Min Value: ");
+    Serial.print(minVal);
+    Serial.println("");
 }
 
 void loadSettings()
@@ -90,6 +95,7 @@ void loadSettings()
     midiChannel[0] = EEPROM.read(3);
     midiChannel[1] = EEPROM.read(4);
     midiChannel[2] = EEPROM.read(5);
+    minVal = EEPROM.read(6);
     printSettings();
 }
 
@@ -111,6 +117,8 @@ void storeSettings()
     EEPROM.write(3, midiChannel[0]);
     EEPROM.write(4, midiChannel[1]);
     EEPROM.write(5, midiChannel[2]);
+
+    EEPROM.write(6, minVal);
 
     EEPROM.commit();
 
@@ -149,8 +157,8 @@ void appendSysex(uint8_t value)
     Serial.print("Appending sysex value: ");
     Serial.println(value);
     // example message (use as default values for programmed units):
-    // F0  7E 67 68 6F 73 74 6E 6F 74 65 00 01  01  0B  07  00  00  00  F7
-    // SYX ID g  h  o  s  t  n  o  t  e  DEV-ID CC0 CC1 CC2 CH0 CH1 CH2 SYX
+    // F0  7E 67 68 6F 73 74 6E 6F 74 65 00 01  01  0B  07  00  00  00   00 F7
+    // SYX ID g  h  o  s  t  n  o  t  e  DEV-ID CC0 CC1 CC2 CH0 CH1 CH2 LOW SYX
     if (sysexIdx >= 31)
         return;
 
@@ -164,12 +172,12 @@ void processSysex()
     int dataLen = sysexIdx;
     sysexIdx = 0;
     
-    if (dataLen != 20)
+    if (dataLen != 21)
     {
         return;
     }
 
-    for (int i = 0; i < 20; i++)
+    for (int i = 0; i < 21; i++)
     {
         Serial.print(sysexData[i], 16);
         Serial.print(" ");
@@ -190,10 +198,11 @@ void processSysex()
     valid &= sysexData[10] == 0x65;
     valid &= sysexData[11] == 0x00;
     valid &= sysexData[12] == 0x01;
-    valid &= sysexData[19] == 0xF7;
+    valid &= sysexData[20] == 0xF7;
     if (!valid)
     {
         Serial.println("Invalid Sysex message received");
+        sysexIdx = 0;
         return;
     }
 
@@ -204,6 +213,8 @@ void processSysex()
     midiChannel[0] = sysexData[16];
     midiChannel[1] = sysexData[17];
     midiChannel[2] = sysexData[18];
+
+    minVal = sysexData[19];
 
     storeSettings();
 }
@@ -218,7 +229,6 @@ void writeCc(int sliderNum, int midiValue)
 }
 
 int iterations = 0;
-int adcMin = 3;
 float submitThreshold = 5;
 float adcValues[3] = {0};
 float filteredValues[3] = {0};
@@ -230,12 +240,15 @@ void loop()
     iterations++;
     bool warmup = iterations < 100;
     
-    int s2 = analogRead(A0) - adcMin;
-    int s1 = analogRead(A1) - adcMin;
-    int s0 = analogRead(A2) - adcMin;
-    adcValues[0] = TranslateLog2lin(s0);
-    adcValues[1] = TranslateLog2lin(s1);
-    adcValues[2] = TranslateLog2lin(s2);
+    int s2 = analogRead(A0) - minVal;
+    int s1 = analogRead(A1) - minVal;
+    int s0 = analogRead(A2) - minVal;
+    float scaler = 1023.0f / (1023.0f - minVal);
+    adcValues[0] = TranslateLog2lin(s0 * scaler);
+    adcValues[1] = TranslateLog2lin(s1 * scaler);
+    adcValues[2] = TranslateLog2lin(s2 * scaler);
+    
+    //Serial.printf("s: %d %d %d \n", s0, s1, s2);
 
     for (int i=0; i<3; i++)
     {
@@ -260,7 +273,6 @@ void loop()
             }
         }
     }
-
 
     while (usb_midi.available() > 0)
     {
