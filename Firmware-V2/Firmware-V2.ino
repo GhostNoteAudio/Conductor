@@ -1,5 +1,5 @@
-#include <Arduino.h>
-#include <Adafruit_TinyUSB.h>
+#include <Arduino.h> // MIDI Library by Francois Best, lathoub
+#include <Adafruit_TinyUSB.h> // Included in the Pi Pico Arduino board setup, select from Tools->USB Stack // Don't install this library separately
 #include <MIDI.h>
 #include <EEPROM.h>
 
@@ -134,7 +134,12 @@ void setup()
   pinMode(A1, INPUT);
   pinMode(A2, INPUT);
 
-  usb_midi.setStringDescriptor("Ghost Note Conductor");
+  TinyUSBDevice.setID(0x1209, 0x5000);
+  usb_midi.setStringDescriptor("Ghost Note Audio Conductor");
+  TinyUSBDevice.setManufacturerDescriptor("Ghost Note Audio");
+  TinyUSBDevice.setProductDescriptor("Conductor");
+  TinyUSBDevice.setSerialDescriptor("Ghost Note Conductor");
+  
   usb_midi.begin();
   Serial.begin(115200);
 

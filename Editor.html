@@ -51,7 +51,11 @@
                 try {
                     midiAccess = await navigator.requestMIDIAccess({sysex: true});
                     midiAccess.outputs.forEach(port => {
-                        if (port.name === "Ghost Note Conductor") {
+                        let portName = port.name.toLowerCase();
+                        let manufacturer = port.manufacturer.toLocaleLowerCase();
+                        let checkA = manufacturer.includes("ghost note") && portName.includes("conductor");
+                        let checkB = portName.includes("ghost note") && portName.includes("conductor");
+                        if (checkA | checkB) {
                             midiPortId = port.id;
                         }
                     });
