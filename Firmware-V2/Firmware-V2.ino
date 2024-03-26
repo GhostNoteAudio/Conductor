@@ -3,6 +3,9 @@
 #include <MIDI.h>
 #include <EEPROM.h>
 
+// Change if using log slider
+#define LINEAR_SLIDER 1
+
 // USB MIDI object
 Adafruit_USBD_MIDI usb_midi;
 
@@ -44,9 +47,10 @@ int sliderData[9] =
 };
 
 float TranslateLog2lin(float x)
-{    
+{
     if (x < 0) x = 0;
     if (x > 1023) x = 1023;
+    if (LINEAR_SLIDER) return x;
 
     for (int i=0; i < 8; i++)
     {
@@ -134,7 +138,7 @@ void setup()
   pinMode(A1, INPUT);
   pinMode(A2, INPUT);
 
-  TinyUSBDevice.setID(0x1209, 0x5000);
+  TinyUSBDevice.setID(0x01, 0x5000);
   usb_midi.setStringDescriptor("Ghost Note Audio Conductor");
   TinyUSBDevice.setManufacturerDescriptor("Ghost Note Audio");
   TinyUSBDevice.setProductDescriptor("Conductor");
