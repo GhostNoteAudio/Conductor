@@ -30,8 +30,8 @@ Note: The project uses the Adafruit TinyUSB Library. This is included in the Pi 
     * Tools -> Board -> Raspberry Pi Pico/RP2040 -> Raspberry Pi Pico
 3. Configure your settings to match the following screenshot (most likely they are all identical by default, except the USB Stack)
 ![settings](docs/settings.png "Settings")
-4. Choose the connected board in the dropdown menu
-![board select](docs/boardselect.png "Board Select")
+4. Choose the connected board in the dropdown menu<br/>
+![board select](docs/boardselect.png "Board Select")<br/>
 Note that if you have multiple serial port devices or Pi Pico controllers connected, it may not be obvious which is which. You may just have to try until you find the right one :)
 5. Hit Upload
 6. (sometimes necessary) Disconnect and reconnect the controller from the computer - this allows the USB stack to reset and present itself as a MIDI class compliant device
