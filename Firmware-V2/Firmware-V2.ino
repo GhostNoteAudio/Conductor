@@ -48,8 +48,8 @@ int sliderData[9] =
 
 float TranslateLog2lin(float x)
 {
-    if (x < 0) x = 0;
-    if (x > 1023) x = 1023;
+    if (x <= 0) x = 0;
+    if (x >= 1023) x = 1023;
     if (LINEAR_SLIDER) return x;
 
     for (int i=0; i < 8; i++)
@@ -138,7 +138,7 @@ void setup()
   pinMode(A1, INPUT);
   pinMode(A2, INPUT);
 
-  TinyUSBDevice.setID(0x01, 0x5000);
+  TinyUSBDevice.setID(0xFB83, 0x5000); // 0xFB83 is an unused USB manufacturer ID.
   usb_midi.setStringDescriptor("Ghost Note Audio Conductor");
   TinyUSBDevice.setManufacturerDescriptor("Ghost Note Audio");
   TinyUSBDevice.setProductDescriptor("Conductor");
