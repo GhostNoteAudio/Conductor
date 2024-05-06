@@ -1,10 +1,12 @@
-#include <Arduino.h>
-#include <Adafruit_TinyUSB.h>
+#include <Arduino.h> // MIDI Library by Francois Best, lathoub
+#include <Adafruit_TinyUSB.h> // Included in the Pi Pico Arduino board setup, select from Tools->USB Stack // Don't install this library separately
 #include <MIDI.h>
 #include <EEPROM.h>
 
+// Change if using log slider
 #define LINEAR_SLIDER 1
 
+// USB MIDI object
 Adafruit_USBD_MIDI usb_midi;
 
 class PotUpdate
@@ -20,6 +22,8 @@ public:
     }
 };
 
+// Create a new instance of the Arduino MIDI Library,
+// and attach usb_midi as the transport.
 MIDI_CREATE_INSTANCE(Adafruit_USBD_MIDI, usb_midi, MIDI);
 
 int midiCC[3] = {0};
@@ -128,12 +132,13 @@ void storeSettings()
 
 void setup()
 {
+    //TinyUSB_Device_Init(0);
     pinMode(LED_BUILTIN, OUTPUT);
     pinMode(A0, INPUT);
     pinMode(A1, INPUT);
     pinMode(A2, INPUT);
 
-    TinyUSBDevice.setID(0xFB83, 0x5000);
+    TinyUSBDevice.setID(0xFB83, 0x5000); // 0xFB83 is an unused USB manufacturer ID.
     usb_midi.setStringDescriptor("Ghost Note Audio Conductor");
     TinyUSBDevice.setManufacturerDescriptor("Ghost Note Audio");
     TinyUSBDevice.setProductDescriptor("Conductor");
@@ -141,7 +146,8 @@ void setup()
 
     usb_midi.begin();
     Serial.begin(115200);
-
+    
+    // wait until device mounted
     while (!TinyUSBDevice.mounted())
         delay(1);
 
@@ -160,7 +166,9 @@ void appendSysex(uint8_t value)
 {
     Serial.print("Appending sysex value: ");
     Serial.println(value);
-
+    // example message (use as default values for programmed units):
+    // F0  7E 67 68 6F 73 74 6E 6F 74 65 00 01  01  0B  07  00  00  00   00 F7
+    // SYX ID g  h  o  s  t  n  o  t  e  DEV-ID CC0 CC1 CC2 CH0 CH1 CH2 LOW SYX
     if (sysexIdx >= 31)
         return;
 
@@ -260,6 +268,8 @@ void loop()
     adcValues[0] = TranslateLog2lin(s0 * scaler);
     adcValues[1] = TranslateLog2lin(s1 * scaler);
     adcValues[2] = TranslateLog2lin(s2 * scaler);
+
+    //Serial.printf("s: %d %d %d \n", s0, s1, s2);
     
     for (int i = 0; i < 3; i++)
     {
