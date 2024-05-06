@@ -1,6 +1,6 @@
 ##############################################################
 
-leonardo.name=Arduino Leonardo Conductor
+leonardo.name=Arduino Leonardo Custom
 
 # Original VID and PID entries
 leonardo.vid.0=0x2341
@@ -11,16 +11,54 @@ leonardo.vid.2=0x2A03
 leonardo.pid.2=0x0036
 leonardo.vid.3=0x2A03
 leonardo.pid.3=0x8036
+leonardo.vid.4=0x2341
+leonardo.pid.4=0x8036
 
 # Custom VID and PID entry
-leonardo.vid.4=0xFB83
-leonardo.pid.4=0x5000
+leonardo.vid.5=0xFB83
+leonardo.pid.5=0x5000
 
-# USB Manufacturer and Product descriptors
-leonardo.vid.4.name=Ghost Note Audio
-leonardo.pid.4.name=Conductor
+# Upload port configurations
+leonardo.upload_port.0.vid=0x2341
+leonardo.upload_port.0.pid=0x0036
+leonardo.upload_port.1.vid=0x2341
+leonardo.upload_port.1.pid=0x8036
+leonardo.upload_port.2.vid=0x2A03
+leonardo.upload_port.2.pid=0x0036
+leonardo.upload_port.3.vid=0x2A03
+leonardo.upload_port.3.pid=0x8036
+leonardo.upload_port.4.vid=0x2341
+leonardo.upload_port.4.pid=0x8036
 
-# Serial descriptor
+# Upload tool configurations
+leonardo.upload.tool=avrdude
+leonardo.upload.tool.default=avrdude
+leonardo.upload.tool.network=arduino_ota
+
+# Bootloader configurations
+leonardo.bootloader.tool=avrdude
+leonardo.bootloader.tool.default=avrdude
+leonardo.bootloader.low_fuses=0xff
+leonardo.bootloader.high_fuses=0xd8
+leonardo.bootloader.extended_fuses=0xcb
+leonardo.bootloader.file=caterina/Caterina-Leonardo.hex
+leonardo.bootloader.unlock_bits=0x3F
+leonardo.bootloader.lock_bits=0x2F
+
+# Build configurations
+leonardo.build.mcu=atmega32u4
+leonardo.build.f_cpu=16000000L
+leonardo.build.vid=0x2341
+leonardo.build.pid=0x8036
+leonardo.build.usb_product="Arduino Leonardo"
+leonardo.build.board=AVR_LEONARDO
+leonardo.build.core=arduino
+leonardo.build.variant=leonardo
+leonardo.build.extra_flags={build.usb_flags}
+
+# Custom USB descriptors
+leonardo.vid.5.name=Ghost Note Audio
+leonardo.pid.5.name=Conductor
 leonardo.serial=Ghost Note Conductor
 
 ##############################################################
