@@ -56,9 +56,11 @@ leonardo.build.core=arduino
 leonardo.build.variant=leonardo
 leonardo.build.extra_flags={build.usb_flags}
 
-# Custom USB descriptors
+# USB Manufacturer and Product descriptors
 leonardo.vid.5.name=Ghost Note Audio
 leonardo.pid.5.name=Conductor
+
+# Serial descriptor
 leonardo.serial=Ghost Note Conductor
 
 ##############################################################
