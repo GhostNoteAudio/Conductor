@@ -1,6 +1,6 @@
 ##############################################################
 
-leonardo.name=Arduino Leonardo Custom
+leonardo.name=Ghost Note Audio Conductor
 
 # Original VID and PID entries
 leonardo.vid.0=0x2341
