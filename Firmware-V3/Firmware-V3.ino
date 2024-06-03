@@ -34,11 +34,18 @@ public:
     bool SendNrpn = false;
     bool SendCC = true;
 
+private:
+    float PitchbendMultiplierUpper = 1.0;
+    float PitchbendMultiplierLower = 1.0;
+
+public:
     void ProcessUpdate(float filteredValue, bool dryrun)
     {
         //Serial.printf("Process update - Mapping. Value: %.2f, dryrun: %d\n", filteredValue, dryrun ? 1 : 0);
         if (SendCC)
             SendCCUpdate(filteredValue, dryrun);
+        if (SendPitchbend)
+            SendPitchbendUpdate(filteredValue, dryrun);
     }
 
     void PackData(uint8_t* buffer)
@@ -72,6 +79,10 @@ public:
         SendPitchbend = (buffer[8] & 0x04) > 0;
         SendNrpn = (buffer[8] & 0x02) > 0;
         SendCC = (buffer[8] & 0x01) > 0;
+
+        int deadspace = 32; //ParamNumber;
+        PitchbendMultiplierUpper = 8191.0f / (511.0f - deadspace / 2.0f);
+        PitchbendMultiplierLower = 8192.0f / (512.0f - deadspace / 2.0f);
     }
 
     void Print()
@@ -87,20 +98,66 @@ private:
 
     void SendCCUpdate(float filteredValue, bool dryrun)
     {
-        int dr = dryrun ? 1 : 0;
-
         if (fabsf(filteredValue - lastTransmitFloat) >= SubmitThreshold)
         {
-            //Serial.printf("Sending CC update - filteredValue: %.2f, lastTransmitFloat: %.2f, SubmitThreshold: %d, dryrun: %d \n", filteredValue, lastTransmitFloat, SubmitThreshold, dr);
-
-            int midiValue = ((int)(filteredValue)) >> 0;
+            int midiValue = ((int)(filteredValue)) >> 3;
             if (lastTransmitCC != midiValue)
             {
                 lastTransmitFloat = filteredValue;
                 lastTransmitCC = midiValue;
-                Serial.printf("Submitting midiValue %d, lastTransmitCC: %d\n", midiValue, lastTransmitCC);
                 if (!dryrun)
+                {
+                    Serial.printf("Submitting midiValue %d\n", midiValue);
                     WriteCc(midiValue);
+                }
+            }
+        }
+    }
+
+    void SendPitchbendUpdate(float filteredValue, bool dryrun)
+    {
+        bool edgeValue = false;
+        // deal with very close to top - pull to max value
+        if (1023 - lastTransmitFloat <= SubmitThreshold && 1023 - filteredValue < SubmitThreshold)
+        {
+            //Serial.println("Clamp to max");
+            filteredValue = 1023;
+            edgeValue = true;
+        }
+
+        // deal with very close to zero - pull to min
+        if (lastTransmitFloat <= SubmitThreshold && filteredValue < SubmitThreshold)
+        {
+            //Serial.println("Clamp to zero");
+            filteredValue = 0;
+            edgeValue = true;
+        }
+
+        if (fabsf(filteredValue - lastTransmitFloat) >= SubmitThreshold || edgeValue)
+        {
+            //Serial.printf("Sending filtered value: %.2f\n", filteredValue);
+            int pitchValue = 0x2000;
+            int deadspace = 32; //ParamNumber;
+            int deadspaceUpper = 512 + deadspace / 2;
+            int deadspaceLower = 512 - deadspace / 2;
+            
+            if (filteredValue > deadspaceUpper)
+                pitchValue += (filteredValue - deadspaceUpper) * PitchbendMultiplierUpper;
+            if (filteredValue < deadspaceLower)
+                pitchValue += (filteredValue - deadspaceLower) * PitchbendMultiplierLower;
+
+            if (pitchValue > 0x3FFF) pitchValue = 0x3FFF;
+            if (pitchValue < 0) pitchValue = 0;
+
+            if (lastTransmit14bit != pitchValue)
+            {
+                lastTransmitFloat = filteredValue;
+                lastTransmit14bit = pitchValue;
+                if (!dryrun)
+                {
+                    Serial.printf("Submitting pitch value %d\n", pitchValue);
+                    WritePitchbend(pitchValue);
+                }
             }
         }
     }
@@ -108,12 +165,19 @@ private:
     void WriteCc(int midiValue)
     {
         uint8_t data[3];
-        data[0] = Channel | 0xB0;
+        data[0] = 0xB0 | Channel;
         data[1] = ParamNumber;
         data[2] = midiValue;
-        //Serial.println("Writing 3 bytes to usb midi port");
         usb_midi.write(data, 3);
-        //Serial.println("Done writing");
+    }
+
+    void WritePitchbend(int value)
+    {
+        uint8_t data[3];
+        data[0] = 0xE0 | Channel;
+        data[1] = (value) & 0x7F;
+        data[2] = (value >> 7) & 0x7F;
+        usb_midi.write(data, 3);
     }
 };
 
@@ -128,43 +192,41 @@ public:
     }
 
     int adcValues[3];
-    float floatValues[3];
     float filteredValues[3];
+    float clippedValues[3];
 
     void ProcessUpdate(int adcValue, int idx, int page)
     {
         auto mapping = mappings[page * 3 + idx];
         //Serial.printf("ProcessUpdate - Fader %d, value %d\n", idx, adcValue);
         adcValues[idx] = adcValue;
-        adcValue = adcValue - mapping.FaderBottomDeadZone;
-        float range = (1023 - mapping.FaderTopDeadZone) - mapping.FaderBottomDeadZone;
-        float fVal = adcValue / range;
-        if (fVal < 0) fVal = 0.0f;
-        if (fVal > 1) fVal = 1.0f;;
-        floatValues[idx] = fVal * 1023.0f;
-        FilterValue(idx);
-    }
-
-    float GetFilteredValue(int idx)
-    {
-        if (idx < 0 || idx >= 3)
-            return -1;
-        return filteredValues[idx];
-    }
-
-private:
-    void FilterValue(int i)
-    {
+        
+        // ---- Filter ----
         float alpha;
-        float val = floatValues[i];
+        float val = adcValue;
         // larger alpha if new value is far away, so we seek the correct location quicker
         // Slower alpha when nearby to smooth noise
-        if (fabsf(val - filteredValues[i]) > 10)
+        if (fabsf(val - filteredValues[idx]) > 10)
           alpha = 0.05;
         else
           alpha = 0.005;
-        filteredValues[i] = (1-alpha) * filteredValues[i] + alpha * val;
-        Serial.printf("Filtered fader %d: %.2f\n", i, filteredValues[i]);
+        filteredValues[idx] = (1-alpha) * filteredValues[idx] + alpha * val;
+        //Serial.printf("Filtered fader %d: %.2f\n", i, filteredValues[i]);
+
+        // ---- Clipping ----
+        float clipVal = filteredValues[idx] - mapping.FaderBottomDeadZone;
+        float range = (1023 - mapping.FaderTopDeadZone) - mapping.FaderBottomDeadZone;
+        float fVal = clipVal / range;
+        if (fVal < 0) fVal = 0.0f;
+        if (fVal > 1) fVal = 1.0f;;
+        clippedValues[idx] = fVal * 1023.0f;
+    }
+
+    float GetProcessedValue(int idx)
+    {
+        if (idx < 0 || idx >= 3)
+            return -1;
+        return clippedValues[idx];
     }
 };
 
@@ -288,13 +350,13 @@ public:
         for (int i = 0; i < 9; i++)
         {
             mappings[i].Channel = 0;
-            mappings[i].SubmitThreshold = 5;
+            mappings[i].SubmitThreshold = i == 1 ? 1 : 5;
             mappings[i].ParamNumber = 1 + i;
             mappings[i].MinVal = 0;
             mappings[i].MaxVal = 127;
-            mappings[i].SendPitchbend = false;
+            mappings[i].SendPitchbend = i == 1;
             mappings[i].SendNrpn = false;
-            mappings[i].SendCC = true;
+            mappings[i].SendCC = i != 1;
         }
 
         if (storeSettings)
@@ -471,6 +533,8 @@ void setup()
     pinMode(D7, OUTPUT);
     pinMode(D8, OUTPUT);
 
+    delay(300);
+
     TinyUSBDevice.setID(0xFB83, 0x5000); // 0xFB83 is an unused USB manufacturer ID.
     usb_midi.setStringDescriptor("Ghost Note Audio Conductor");
     TinyUSBDevice.setManufacturerDescriptor("Ghost Note Audio");
@@ -478,37 +542,43 @@ void setup()
     TinyUSBDevice.setSerialDescriptor("Ghost Note Conductor");
 
     usb_midi.begin();
+    delay(100);
     Serial.begin(115200);
+    delay(100);
 
     // wait until device mounted
     while( !TinyUSBDevice.mounted() ) delay(1);
 
+    // Todo: REMOVE before release
     while(!Serial) {}
 
     delay(100);
     EEPROM.begin(512);
+    delay(100);
 
     if (configManager.IsProgrammed())
         configManager.LoadSettingsFromEEPROM();
     else
         configManager.LoadDefaultSettings();
+
+    delay(100);
 }
 
 void loop()
 {
     iterations++;
-    bool changePage = button.ProcessPageButton(digitalRead(D2));
+    bool changePage = button.ProcessPageButton(!digitalRead(D2)); // button pulls low
     if (changePage) iterations = 0;
     bool dryrun = iterations < 100;
     int page = button.GetPage();
 
     faders.ProcessUpdate(analogRead(A2), 0, page);
-    //faders.ProcessUpdate(analogRead(A1), 1, page);
-    //faders.ProcessUpdate(analogRead(A0), 2, page);
+    faders.ProcessUpdate(analogRead(A1), 1, page);
+    faders.ProcessUpdate(analogRead(A0), 2, page);
     
-    mappings[page * 3 + 0].ProcessUpdate(faders.GetFilteredValue(0), dryrun);
-    //mappings[page * 3 + 1].ProcessUpdate(faders.GetFilteredValue(1), dryrun);
-    //mappings[page * 3 + 2].ProcessUpdate(faders.GetFilteredValue(2), dryrun);
+    mappings[page * 3 + 0].ProcessUpdate(faders.GetProcessedValue(0), dryrun);
+    mappings[page * 3 + 1].ProcessUpdate(faders.GetProcessedValue(1), dryrun);
+    mappings[page * 3 + 2].ProcessUpdate(faders.GetProcessedValue(2), dryrun);
     configManager.ListenForSysexInput();
     delayMicroseconds(100);
 }
