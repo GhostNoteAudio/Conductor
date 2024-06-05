@@ -51,7 +51,7 @@ public:
         if (Mode == MODE_PITCHBEND)
             SendPitchbendUpdate(filteredValue, dryrun);
         if (Mode == MODE_NRPN || Mode == MODE_RPN || Mode == MODE_14BIT)
-            SendNrpnUpdate(filteredValue, dryrun);
+            Send14BitUpdate(filteredValue, dryrun);
     }
 
     void PackData(uint8_t* buffer)
@@ -88,7 +88,7 @@ public:
 
     void Print()
     {
-        Serial.printf("Channel: %d, SubmitThreshold: %d, Param Number (CC/NRPN): %d, MinVal: %d, MaxVal: %d, Mode: %d\n", 
+        Serial.printf("Channel: %d, SubmitThreshold: %d, Param Number (CC/NRPN/Deadzone): %d, MinVal: %d, MaxVal: %d, Mode: %d\n", 
             Channel, SubmitThreshold, ParamNumber, MinVal, MaxVal, Mode);
     }
 
@@ -160,7 +160,7 @@ private:
         }
     }
 
-    void SendNrpnUpdate(float filteredValue, bool dryrun)
+    void Send14BitUpdate(float filteredValue, bool dryrun)
     {
         bool edgeValue = false;
         // deal with very close to top - pull to max value
@@ -179,17 +179,17 @@ private:
 
         if (fabsf(filteredValue - lastTransmitFloat) >= SubmitThreshold || edgeValue)
         {
-            int nrpnValue = (int)(filteredValue * inv1023 * (MaxVal - MinVal + 0.999) + MinVal);
-            if (lastTransmit14bit != nrpnValue)
+            int x14bitValue = (int)(filteredValue * inv1023 * (MaxVal - MinVal + 0.999) + MinVal);
+            if (lastTransmit14bit != x14bitValue)
             {
                 lastTransmitFloat = filteredValue;
-                lastTransmit14bit = nrpnValue;
+                lastTransmit14bit = x14bitValue;
                 if (!dryrun)
                 {
                     if (Mode == MODE_14BIT)
-                        Write14Bit(nrpnValue);
+                        Write14Bit(x14bitValue);
                     else
-                        WriteNrpn(nrpnValue);
+                        WriteNrpn(x14bitValue);
                 }
             }
         }
