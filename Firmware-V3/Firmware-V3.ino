@@ -171,7 +171,7 @@ private:
         }
 
         // deal with very close to zero - pull to min
-        if (lastTransmitFloat <= SubmitThreshold && filteredValue < SubmitThreshold)
+        if (filteredValue < SubmitThreshold)
         {
             filteredValue = 0;
             edgeValue = true;
