@@ -164,7 +164,7 @@ private:
     {
         bool edgeValue = false;
         // deal with very close to top - pull to max value
-        if (1023 - lastTransmitFloat <= SubmitThreshold && 1023 - filteredValue < SubmitThreshold)
+        if (filteredValue > 1023 - SubmitThreshold)
         {
             filteredValue = 1023;
             edgeValue = true;
