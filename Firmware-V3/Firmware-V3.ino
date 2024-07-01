@@ -6,8 +6,8 @@
 // Change if using log slider
 #define LINEAR_SLIDER 1
 #define MAX_SYX_LEN 500
-#define BYTES_PER_MAPPING 9
-#define MAGIC_CONSTANT 3788608666 // Used to check whether the unit has been programmed or not
+#define BYTES_PER_MAPPING 11
+#define MAGIC_CONSTANT 3788608667 // Used to check whether the unit has been programmed or not
 
 // USB MIDI object
 Adafruit_USBD_MIDI usb_midi;
@@ -28,10 +28,10 @@ class Mapping
 {
 public:
     uint8_t Channel = 0;
-    uint8_t SubmitThreshold = 5;
+    uint8_t MovementThreshold = 1;
 
-    uint8_t FaderBottomDeadZone = 5;
-    uint8_t FaderTopDeadZone = 5;
+    uint8_t LowerThreshold = 5;
+    uint8_t UpperThreshold = 5;
 
     uint16_t ParamNumber = 1; // CC, nrpn number or pitchbend deadzone
     uint16_t MinVal = 0;
@@ -57,39 +57,45 @@ public:
     void PackData(uint8_t* buffer)
     {
         buffer[0] = Channel;
-        buffer[1] = SubmitThreshold;
-        
-        buffer[2] = (uint8_t)((ParamNumber >> 7) & 0x7F);
-        buffer[3] = (ParamNumber) & 0x7F;
+        buffer[1] = MovementThreshold;
 
-        buffer[4] = (uint8_t)((MinVal >> 7) & 0x7F);
-        buffer[5] = (uint8_t)((MinVal) & 0x7F);
-
-        buffer[6] = (uint8_t)((MaxVal >> 7) & 0x7F);
-        buffer[7] = (uint8_t)((MaxVal) & 0x7F);
+        buffer[2] = LowerThreshold;
+        buffer[3] = UpperThreshold;
         
-        buffer[8] = Mode;
+        buffer[4] = (uint8_t)((ParamNumber >> 7) & 0x7F);
+        buffer[5] = (uint8_t)((ParamNumber) & 0x7F);
+
+        buffer[6] = (uint8_t)((MinVal >> 7) & 0x7F);
+        buffer[7] = (uint8_t)((MinVal) & 0x7F);
+
+        buffer[8] = (uint8_t)((MaxVal >> 7) & 0x7F);
+        buffer[9] = (uint8_t)((MaxVal) & 0x7F);
+        
+        buffer[10] = Mode;
     }
 
     void LoadData(uint8_t* buffer)
     {
-        Channel = buffer[0];
-        SubmitThreshold = buffer[1];
+        this->Channel = buffer[0];
+        this->MovementThreshold = buffer[1];
 
-        ParamNumber = (buffer[2] << 7) | buffer[3];
-        MinVal = (buffer[4] << 7) | buffer[5];
-        MaxVal = (buffer[6] << 7) | buffer[7];
-        Mode = buffer[8];
+        this->LowerThreshold = buffer[2];
+        this->UpperThreshold = buffer[3];
 
-        int deadspace = ParamNumber;
-        PitchbendMultiplierUpper = 8191.0f / (511.0f - deadspace / 2.0f);
-        PitchbendMultiplierLower = 8192.0f / (512.0f - deadspace / 2.0f);
+        this->ParamNumber = (buffer[4] << 7) | buffer[5];
+        this->MinVal = (buffer[6] << 7) | buffer[7];
+        this->MaxVal = (buffer[8] << 7) | buffer[9];
+        this->Mode = buffer[10];
+
+        int deadspace = ParamNumber; // for pitchbend only
+        this->PitchbendMultiplierUpper = 8191.0f / (511.0f - deadspace / 2.0f);
+        this->PitchbendMultiplierLower = 8192.0f / (512.0f - deadspace / 2.0f);
     }
 
     void Print()
     {
-        Serial.printf("Channel: %d, SubmitThreshold: %d, Param Number (CC/NRPN/Deadzone): %d, MinVal: %d, MaxVal: %d, Mode: %d\n", 
-            Channel, SubmitThreshold, ParamNumber, MinVal, MaxVal, Mode);
+        Serial.printf("Channel: %d, MovementThreshold: %d, LowerThreshold: %d, UpperThreshold: %d, Param Number (CC/NRPN/Deadzone): %d, MinVal: %d, MaxVal: %d, Mode: %d\n", 
+            Channel, MovementThreshold, LowerThreshold, UpperThreshold, ParamNumber, MinVal, MaxVal, Mode);
     }
 
 private:
@@ -99,7 +105,7 @@ private:
 
     void SendCCUpdate(float filteredValue, bool dryrun)
     {
-        if (fabsf(filteredValue - lastTransmitFloat) >= SubmitThreshold)
+        if (fabsf(filteredValue - lastTransmitFloat) >= MovementThreshold)
         {
             int midiValue = (int)(filteredValue * inv1023 * (MaxVal - MinVal + 0.999) + MinVal);
             if (lastTransmitCC != midiValue)
@@ -119,20 +125,20 @@ private:
     {
         bool edgeValue = false;
         // deal with very close to top - pull to max value
-        if (1023 - lastTransmitFloat <= SubmitThreshold && 1023 - filteredValue < SubmitThreshold)
+        if (1023 - lastTransmitFloat <= MovementThreshold && 1023 - filteredValue < MovementThreshold)
         {
             filteredValue = 1023;
             edgeValue = true;
         }
 
         // deal with very close to zero - pull to min
-        if (lastTransmitFloat <= SubmitThreshold && filteredValue < SubmitThreshold)
+        if (lastTransmitFloat <= MovementThreshold && filteredValue < MovementThreshold)
         {
             filteredValue = 0;
             edgeValue = true;
         }
 
-        if (fabsf(filteredValue - lastTransmitFloat) >= SubmitThreshold || edgeValue)
+        if (fabsf(filteredValue - lastTransmitFloat) >= MovementThreshold || edgeValue)
         {
             int pitchValue = 0x2000;
             int deadspace = ParamNumber;
@@ -164,20 +170,20 @@ private:
     {
         bool edgeValue = false;
         // deal with very close to top - pull to max value
-        if (filteredValue > 1023 - SubmitThreshold)
+        if (filteredValue > 1023 - MovementThreshold)
         {
             filteredValue = 1023;
             edgeValue = true;
         }
 
         // deal with very close to zero - pull to min
-        if (filteredValue < SubmitThreshold)
+        if (filteredValue < MovementThreshold)
         {
             filteredValue = 0;
             edgeValue = true;
         }
 
-        if (fabsf(filteredValue - lastTransmitFloat) >= SubmitThreshold || edgeValue)
+        if (fabsf(filteredValue - lastTransmitFloat) >= MovementThreshold || edgeValue)
         {
             int x14bitValue = (int)(filteredValue * inv1023 * (MaxVal - MinVal + 0.999) + MinVal);
             if (lastTransmit14bit != x14bitValue)
@@ -282,8 +288,8 @@ public:
         filteredValues[idx] = (1-alpha) * filteredValues[idx] + alpha * val;
 
         // ---- Clipping ----
-        float clipVal = filteredValues[idx] - mapping.FaderBottomDeadZone;
-        float range = (1023 - mapping.FaderTopDeadZone) - mapping.FaderBottomDeadZone;
+        float clipVal = filteredValues[idx] - mapping.LowerThreshold;
+        float range = (1023 - mapping.UpperThreshold) - mapping.LowerThreshold;
         float fVal = clipVal / range;
         if (fVal < 0) fVal = 0.0f;
         if (fVal > 1) fVal = 1.0f;;
@@ -417,20 +423,26 @@ public:
 
         for (int i = 0; i < 9; i++)
         {
+            int pn = 0;
+            if (i == 0) pn = 1;
+            else if (i == 1) pn = 11;
+            else if (i == 2) pn = 7;
+            else if (i == 3) pn = 17;
+            else if (i == 4) pn = 21;
+            else if (i == 5) pn = 74;
+            else if (i == 6) pn = 2;
+            else if (i == 7) pn = 3;
+            else if (i == 8) pn = 4;
+
             mappings[i].Channel = 0;
-            mappings[i].SubmitThreshold = 1;
-            mappings[i].ParamNumber = 1 + i;
+            mappings[i].LowerThreshold = 5;
+            mappings[i].UpperThreshold = 5;
+            mappings[i].MovementThreshold = 1;
+            mappings[i].ParamNumber = pn;
             mappings[i].MinVal = 0;
             mappings[i].MaxVal = 127;
-            mappings[i].Mode = 1 + i % 4;
+            mappings[i].Mode = MODE_CC;
         }
-
-        mappings[2].Channel = 0;
-        mappings[2].SubmitThreshold = 1;
-        mappings[2].ParamNumber = 14; // 14+46
-        mappings[2].MinVal = 0;
-        mappings[2].MaxVal = 16383;
-        mappings[2].Mode = MODE_14BIT;
 
         if (storeSettings)
             StoreSettings();
@@ -559,12 +571,52 @@ public:
         return valid;
     }
 
+    bool IsRequestForDump(int dataLen)
+    {
+        // Magic request key = 0x7F 0x01 0x7F 0x02
+        if (dataLen != 18) return false;
+        if (sysexData[13] != 0x7F) return false;
+        if (sysexData[14] != 0x01) return false;
+        if (sysexData[15] != 0x7F) return false;
+        if (sysexData[16] != 0x02) return false;
+        return true;
+    }
+
+    void DumpCurrentSettings()
+    {
+        TinyUSB_Device_FlushCDC();
+        TinyUSB_Device_Task();
+        Serial.println("Dumping current EEPROM settings via SysEx");
+
+        uint8_t startByte[1];
+        uint8_t stopByte[1];
+        startByte[0] = 0xF0;
+        stopByte[0] = 0xF7;
+        int i = 0;
+
+        usb_midi.write(startByte, 1);
+        delay(1);
+
+        for (int k = 0; k < 9 * BYTES_PER_MAPPING; k+=BYTES_PER_MAPPING)
+        {
+            usb_midi.write(&EEPROM[4+k], BYTES_PER_MAPPING);
+            TinyUSB_Device_FlushCDC();
+            TinyUSB_Device_Task();
+            delay(6);
+        }
+        
+        usb_midi.write(stopByte, 1);
+        TinyUSB_Device_FlushCDC();
+        TinyUSB_Device_Task();
+        delay(50);
+        Serial.println("Done sending SysEx.");
+    }
+
     void ProcessSysex()
     {
         Serial.println("Processing sysex...");
         int dataLen = sysexCount;
         sysexCount = 0;
-
 
         // Print the message
         for (int i = 0; i < 21; i++)
@@ -573,6 +625,8 @@ public:
             Serial.print(" ");
         }
         Serial.println("");
+        TinyUSB_Device_FlushCDC();
+        TinyUSB_Device_Task();
 
         bool valid = ValidateSysex(dataLen);
         if (!valid)
@@ -581,8 +635,18 @@ public:
             return;
         }
 
-        Serial.println("Sysex valid, proceeding to load settings from buffer...");
-        LoadSettingsFromSysexData();
+        TinyUSB_Device_FlushCDC();
+        TinyUSB_Device_Task();
+
+        if (IsRequestForDump(dataLen))
+        {
+            DumpCurrentSettings();
+        }
+        else
+        {
+            Serial.println("Sysex valid, proceeding to load settings from buffer...");
+            LoadSettingsFromSysexData();
+        }
     }
 };
 
