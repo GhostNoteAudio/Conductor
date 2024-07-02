@@ -137,11 +137,6 @@ void setup()
   pinMode(A0, INPUT);
   pinMode(A1, INPUT);
   pinMode(A2, INPUT);
-  pinMode(D2, INPUT);
-
-  pinMode(D6, OUTPUT);
-  pinMode(D7, OUTPUT);
-  pinMode(D8, OUTPUT);
 
   TinyUSBDevice.setID(0xFB83, 0x5000); // 0xFB83 is an unused USB manufacturer ID.
   usb_midi.setStringDescriptor("Ghost Note Audio Conductor");
@@ -242,9 +237,6 @@ void writeCc(int sliderNum, int midiValue)
     usb_midi.write(data, 3);
 }
 
-int btnCounter = 0;
-int btnState = 0;
-int channel = 0;
 int iterations = 0;
 float submitThreshold = 5;
 float adcValues[3] = {0};
@@ -252,51 +244,7 @@ float filteredValues[3] = {0};
 float submittedValues[3] = {0};
 int submittedMidi[3] = {0};
 
-void processChannelButton(int btn)
-{
-    if (btn == 1)
-        btnCounter++;
-    else
-        btnCounter--;
-
-    if (btnCounter > 1000)
-        btnCounter = 1000;
-    if (btnCounter < 0)
-        btnCounter = 0;
-
-    if (btnCounter == 1000 && btnState == 0)
-    {
-        btnState = 1;
-        channel = (channel + 1) % 3;
-    }
-    if (btnCounter == 0 && btnState == 1)
-    {
-        btnState = 0;
-    }
-
-    // Control LED colour
-
-    if (channel == 0)
-    {
-        digitalWrite(D6, 1);
-        digitalWrite(D7, 0);
-        digitalWrite(D8, 0);
-    }
-    else if (channel == 1)
-    {
-        digitalWrite(D6, 0);
-        digitalWrite(D7, 1);
-        digitalWrite(D8, 0);
-    }
-    else if (channel == 2)
-    {
-        digitalWrite(D6, 0);
-        digitalWrite(D7, 0);
-        digitalWrite(D8, 1);
-    }
-}
-
-void loop()
+void loop() 
 {
     iterations++;
     bool warmup = iterations < 100;
@@ -304,9 +252,6 @@ void loop()
     int s2 = analogRead(A0) - minVal;
     int s1 = analogRead(A1) - minVal;
     int s0 = analogRead(A2) - minVal;
-    int btn = digitalRead(D2);
-    processChannelButton(btn);
-
     float scaler = 1023.0f / (1023.0f - minVal);
     adcValues[0] = TranslateLog2lin(s0 * scaler);
     adcValues[1] = TranslateLog2lin(s1 * scaler);
@@ -360,5 +305,4 @@ void loop()
 
     delayMicroseconds(100);
 }
-
 
