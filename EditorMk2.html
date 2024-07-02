@@ -1,5 +1,8 @@
 <html>
     <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono&display=swap" rel="stylesheet">
         <link href='https://fonts.googleapis.com/css?family=Open Sans' rel='stylesheet'>
         
 
@@ -38,6 +41,8 @@
                 height: 140px;
                 margin-bottom: 5px;
                 padding: 5px;
+                font-family: "JetBrains Mono";
+                font-size: 10pt;
             }
 
             #master-div {
@@ -77,13 +82,13 @@
             class Fader {
                 constructor() {
                     this.mode = "CC";
-                    this.parameter = 1;
-                    this.channel = 1;
+                    this.parameter = 0;
+                    this.channel = 0;
                     this.minValue = 0;
-                    this.maxValue = 127;
-                    this.moveThreshold = 1;
-                    this.lowerThreshold = 5;
-                    this.upperThreshold = 5;
+                    this.maxValue = 0;
+                    this.moveThreshold = 0;
+                    this.lowerThreshold = 0;
+                    this.upperThreshold = 0;
                 }
             }
 
@@ -103,6 +108,7 @@
             let midiOutputPortId = null;
             let sysexCommand = [];
             let midiAccess = null;
+            let inputMessages = [];
 
             async function loadWebMidi() {
                 try {
@@ -173,6 +179,7 @@
                 }
 
                 updateSysex();
+                updateUi();
             }
 
             function updateUi() {
@@ -204,6 +211,11 @@
                     $(`#movement-${i+1}`).val(fader.moveThreshold);
                     $(`#thres-low-${i+1}`).val(fader.lowerThreshold);
                     $(`#thres-high-${i+1}`).val(fader.upperThreshold);
+
+                    let disableForPb = fader.mode == "Pitchbend";
+                    $(`#param-${i+1}`).prop('disabled', disableForPb);
+                    $(`#min-${i+1}`).prop('disabled', disableForPb);
+                    $(`#max-${i+1}`).prop('disabled', disableForPb);
                 }
             }
 
@@ -250,12 +262,16 @@
                 for (let faderIdx = 0; faderIdx < 9; faderIdx++) {
                     let offset = startIdx + faderIdx * BYTES_PER_MAPPING;
                     let fader = model.faders[faderIdx];
+
+                    // hack for pitchbend - set the deadzone (repurposes the parameter value) to 64
+                    let parameter = fader.mode == "Pitchbend" ? 64 : fader.parameter;
+
                     message[offset + 0] = fader.channel - 1;
                     message[offset + 1] = fader.moveThreshold;
                     message[offset + 2] = fader.lowerThreshold;
                     message[offset + 3] = fader.upperThreshold;
-                    message[offset + 4] = ((fader.parameter >> 7) & 0x7F);
-                    message[offset + 5] = ((fader.parameter) & 0x7F);
+                    message[offset + 4] = ((parameter >> 7) & 0x7F);
+                    message[offset + 5] = ((parameter) & 0x7F);
                     message[offset + 6] = ((fader.minValue >> 7) & 0x7F);
                     message[offset + 7] = ((fader.minValue) & 0x7F);
                     message[offset + 8] = ((fader.maxValue >> 7) & 0x7F);
@@ -285,6 +301,7 @@
                     fader.mode = getModeString(message[offset + 10]);
                 }
 
+                updateSysex();
                 updateUi();
             }
 
@@ -292,7 +309,28 @@
                 if (message.data.length === 9 * BYTES_PER_MAPPING + 2)
                     readSysexDump(message.data);
                 else
-                    console.log("Midi message: " + message.data);
+                {
+                    let msgType = message.data[0] & 0xF0;
+                    let channel = (message.data[0] & 0x0F) + 1;
+                    let byte1 = message.data[1];
+                    let byte2 = message.data[2];
+                    let typeString = "";
+                    if (msgType == 0x80) typeString = "Note On";
+                    if (msgType == 0x90) typeString = "Note Off";
+                    if (msgType == 0xA0) typeString = "Poly Aftertouch";
+                    if (msgType == 0xB0) typeString = "Control Change";
+                    if (msgType == 0xC0) typeString = "Program Change";
+                    if (msgType == 0xD0) typeString = "Channel Aftertouch";
+                    if (msgType == 0xE0) typeString = "Pitch Wheel";
+                    if (msgType == 0xF0) typeString = "SysEx";
+                    let output = `${typeString} :: Ch ${channel} :: ${byte1.toString().padStart(3, "0")} ${byte2.toString().padStart(3, "0")}`;
+                    inputMessages.push(output);
+                    if (inputMessages.length > 20) inputMessages.shift();
+                    
+                    let textArea = $("#monitor-textarea");
+                    textArea.text(inputMessages.join("\n"));
+                    textArea.scrollTop(textArea[0].scrollHeight - textArea.height());
+                }
             }
 
             function triggerDeviceDump() {
@@ -405,7 +443,7 @@
 
                 
                 <div class="x3-input">
-                    <h3 data-bs-toggle="tooltip" data-bs-html="true" data-bs-placement="right" data-bs-title="The CC/RPN/NRPN parameter to transmit from this fader (not used in Pitchbend Mode).">Parameter No.</h3>
+                    <h3 data-bs-toggle="tooltip" data-bs-html="true" data-bs-placement="right" data-bs-title="The CC/RPN/NRPN parameter to transmit from this fader.">Parameter No.</h3>
                     <input id="param-1" type="number" min="0" max="16383" value="1"></input>
                     <input id="param-2" type="number" min="0" max="16383" value="1"></input>
                     <input id="param-3" type="number" min="0" max="16383" value="1"></input>

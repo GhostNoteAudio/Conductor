@@ -7,7 +7,7 @@
 #define LINEAR_SLIDER 1
 #define MAX_SYX_LEN 500
 #define BYTES_PER_MAPPING 11
-#define MAGIC_CONSTANT 3788608667 // Used to check whether the unit has been programmed or not
+#define MAGIC_CONSTANT 3788608666 // Used to check whether the unit has been programmed or not
 
 // USB MIDI object
 Adafruit_USBD_MIDI usb_midi;
@@ -125,14 +125,14 @@ private:
     {
         bool edgeValue = false;
         // deal with very close to top - pull to max value
-        if (1023 - lastTransmitFloat <= MovementThreshold && 1023 - filteredValue < MovementThreshold)
+        if (filteredValue > 1023 - MovementThreshold)
         {
             filteredValue = 1023;
             edgeValue = true;
         }
 
         // deal with very close to zero - pull to min
-        if (lastTransmitFloat <= MovementThreshold && filteredValue < MovementThreshold)
+        if (filteredValue < MovementThreshold)
         {
             filteredValue = 0;
             edgeValue = true;
@@ -339,8 +339,8 @@ public:
             btnState = 0;
         }
 
-        if (pageChanged)
-            Serial.printf("New Page: %d\n", page);
+        //if (pageChanged)
+        //    Serial.printf("New Page: %d\n", page);
 
         SetPageLed();
         return pageChanged;
@@ -385,8 +385,8 @@ public:
 
     void PrintSettings()
     {
-        for (int i=0; i<9; i++)
-            mappings[i].Print();
+        //for (int i=0; i<9; i++)
+        //    mappings[i].Print();
     }
 
     bool IsProgrammed()
@@ -397,7 +397,7 @@ public:
         uint8_t b3 = (MAGIC_CONSTANT >> 0) & 0xFF;
 
         bool output = EEPROM[0] == b0 && EEPROM[1] == b1 && EEPROM[2] == b2 && EEPROM[3] == b3;
-        Serial.printf("Unit is programmed: %d\n", output ? 1 : 0);
+        //Serial.printf("Unit is programmed: %d\n", output ? 1 : 0);
         return output;
     }
 
@@ -412,14 +412,14 @@ public:
         EEPROM[1] = b1;
         EEPROM[2] = b2;
         EEPROM[3] = b3;
-        Serial.println("Setting IsProgrammed Flag magic constants");
+        //Serial.println("Setting IsProgrammed Flag magic constants");
         if (commit)
             EEPROM.commit();
     }
 
     void LoadDefaultSettings(bool storeSettings = true)
     {
-        Serial.println("Loading default settings programmatically...");
+        //Serial.println("Loading default settings programmatically...");
 
         for (int i = 0; i < 9; i++)
         {
@@ -454,7 +454,7 @@ public:
         for (int i = 0; i < 256; i++)
             temp[i] = EEPROM[4+i];
         
-        Serial.println("Loading settings from flash memory...");
+        //Serial.println("Loading settings from flash memory...");
         for (int i = 0; i < 9; i++)
             mappings[i].LoadData(&temp[i*BYTES_PER_MAPPING]);
         PrintSettings();
@@ -462,15 +462,15 @@ public:
 
     void LoadSettingsFromSysexData()
     {
-        Serial.println("Loading settings from Sysex buffer...");
+        //Serial.println("Loading settings from Sysex buffer...");
         for (int i = 0; i < 9; i++)
-            mappings[i].LoadData(&sysexData[i*BYTES_PER_MAPPING]);
+            mappings[i].LoadData(&sysexData[13 + i*BYTES_PER_MAPPING]);
         PrintSettings();
     }
 
     void StoreSettings()
     {
-        Serial.println("Storing settings in flash memory...");
+        //Serial.println("Storing settings in flash memory...");
         
         // Only calling this manually because this operation can take a while and we don't want to fill the buffer
         TinyUSB_Device_FlushCDC();
@@ -479,7 +479,10 @@ public:
         PrintSettings();
 
         SetProgrammed();
-
+        TinyUSB_Device_FlushCDC();
+        TinyUSB_Device_Task();
+        delay(10);
+        
         for (int i = 0; i < 9; i++)
         {
             mappings[i].PackData(&EEPROM[4+i*BYTES_PER_MAPPING]);
@@ -502,7 +505,7 @@ public:
         //Serial.println("Listen for Sysex input...");
         while (usb_midi.available() > 0)
         {
-            Serial.println("Data available");
+            //Serial.println("Data available");
             uint8_t value = usb_midi.read();
 
             if (value == 0xF0)
@@ -526,13 +529,14 @@ public:
 
     void BeginSysex()
     {
-        Serial.println("Reset sysex message");
+        //Serial.println("Reset sysex message");
         sysexCount = 0;
     }
 
     void AppendSysex(uint8_t value)
     {
-        Serial.printf("Appending sysex value: %d\n", value);
+        //Serial.printf("Appending sysex value: %d\n", value);
+        
         // example message (use as default values for programmed units):
         // F0  7E 67 68 6F 73 74 6E 6F 74 65 00 02  ... F7
         // SYX ID g  h  o  s  t  n  o  t  e  DEV-ID ... SYX
@@ -586,7 +590,7 @@ public:
     {
         TinyUSB_Device_FlushCDC();
         TinyUSB_Device_Task();
-        Serial.println("Dumping current EEPROM settings via SysEx");
+        //Serial.println("Dumping current EEPROM settings via SysEx");
 
         uint8_t startByte[1];
         uint8_t stopByte[1];
@@ -614,12 +618,12 @@ public:
 
     void ProcessSysex()
     {
-        Serial.println("Processing sysex...");
         int dataLen = sysexCount;
+        Serial.printf("Processing sysex message, %d bytes\r\n", dataLen);
         sysexCount = 0;
 
         // Print the message
-        for (int i = 0; i < 21; i++)
+        for (int i = 0; i < dataLen; i++)
         {
             Serial.print(sysexData[i], 16);
             Serial.print(" ");
@@ -640,12 +644,14 @@ public:
 
         if (IsRequestForDump(dataLen))
         {
+            Serial.println("Sysex Dump request, starting...");
             DumpCurrentSettings();
         }
         else
         {
             Serial.println("Sysex valid, proceeding to load settings from buffer...");
             LoadSettingsFromSysexData();
+            StoreSettings();
         }
     }
 };
@@ -673,10 +679,10 @@ void setup()
     delay(300);
 
     TinyUSBDevice.setID(0xFB83, 0x5000); // 0xFB83 is an unused USB manufacturer ID.
-    usb_midi.setStringDescriptor("Ghost Note Audio Conductor");
+    usb_midi.setStringDescriptor("Ghost Note Audio Conductor Mk2");
     TinyUSBDevice.setManufacturerDescriptor("Ghost Note Audio");
-    TinyUSBDevice.setProductDescriptor("Conductor");
-    TinyUSBDevice.setSerialDescriptor("Ghost Note Conductor");
+    TinyUSBDevice.setProductDescriptor("Conductor Mk2");
+    TinyUSBDevice.setSerialDescriptor("Ghost Note Conductor Mk2");
 
     usb_midi.begin();
     delay(100);
