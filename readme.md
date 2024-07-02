@@ -4,7 +4,7 @@
 
 This repository contains the firmware for the Conductor MIDI controller, as well as the online programmer.
 
-[**Open Mark II Editor**](https://ghostnoteaudio.github.io/Conductor/EditorMk2.html) - [**Open Classi Editor**](https://ghostnoteaudio.github.io/Conductor/Editor.html)
+[**Open Mark II Editor**](https://ghostnoteaudio.github.io/Conductor/EditorMk2.html) - [**Open Classic Editor**](https://ghostnoteaudio.github.io/Conductor/Editor.html)
 
 
 ## Instructions for developers
