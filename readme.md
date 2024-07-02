@@ -4,7 +4,7 @@
 
 This repository contains the firmware for the Conductor MIDI controller, as well as the online programmer.
 
-[**Open Editor**](https://ghostnoteaudio.github.io/Conductor/Editor.html)
+[**Open Mark II Editor**](https://ghostnoteaudio.github.io/Conductor/EditorMk2.html) - [**Open Classi Editor**](https://ghostnoteaudio.github.io/Conductor/Editor.html)
 
 
 ## Instructions for developers
@@ -24,7 +24,7 @@ Note: The project uses the Adafruit TinyUSB Library. This is included in the Pi 
 
 ### Build and upload the firmware
 
-0. Open the Firmware-V2.ino file in Arduino IDE
+0. Open the Firmware-V3.ino file in Arduino IDE
 1. Connect the Conductor unit to your computer via USB
 2. Choose the Pi Pico as the target board
     * Tools -> Board -> Raspberry Pi Pico/RP2040 -> Raspberry Pi Pico
