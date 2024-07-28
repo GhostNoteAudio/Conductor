@@ -4,7 +4,7 @@
 
 This repository contains the firmware for the Conductor MIDI controller, as well as the online programmer.
 
-[**Open Mark II Editor**](https://ghostnoteaudio.github.io/Conductor/EditorMk2.html) - [**Open Classic Editor**](https://ghostnoteaudio.github.io/Conductor/Editor.html)
+[**Open Mark II Editor**](https://ghostnoteaudio.github.io/Conductor/EditorMk2.html) - [**Open Mark I Editor**](https://ghostnoteaudio.github.io/Conductor/Editor.html)
 
 
 ## License
@@ -54,7 +54,7 @@ Note that if you have multiple serial port devices or Pi Pico controllers connec
 **A:** The page switch on the front panel acts as a reset button during startup. Press and hold the page button down while connecting the USB-C cable, and the device will enter bootloader mode, and present itself as a flash drive on your computer. You can then
 copy the .UF2 firmware file to the flash drive, and the device will reset and load the new firmware.
 
-**Q:** How do I enter bootloder mode on the Conductor Classic?
+**Q:** How do I enter bootloder mode on the Conductor Mark I model?
 
 **A:** You need to open the unit up. Remove the four silver socket screws on the front panel using a hex/allen key. You can then remove the top panel and circuit board from the enclosure. There are small tabs in each corner which prevent the circuit board from lifting out directly. You must lift the lower side out first. It's easiest to lift one corner, and once the circuit board is free, the whole thing will come out. Be patient and careful :) Once you have the device open, press and hold the reset button on the Raspberry Pi Pico board while powering up the unit.
 The device will enter bootloader mode, and present itself as a flash drive on your computer. You can then
