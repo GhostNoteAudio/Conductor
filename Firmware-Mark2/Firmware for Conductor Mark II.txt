@@ -1,0 +1,5 @@
+# Version History
+
+## 2024-07-03
+
+Original firmware, currently the latest version. Installed on all sold Mark II units by default.

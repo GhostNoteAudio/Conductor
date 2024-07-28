@@ -1,0 +1,12 @@
+# Version History
+
+## 2024-04-01
+
+Original firmware, as shipped on all Mark I units when sold
+
+## 2024-07-28 
+
+Updated firmware with slight improvements to filtering and hysteresis,
+to prevent "phantom updates" when using very long USB cables, or operating
+in an environment with lots of electromagnetic interference.
+

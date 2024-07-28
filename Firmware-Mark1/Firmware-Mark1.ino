@@ -3,8 +3,12 @@
 #include <MIDI.h>
 #include <EEPROM.h>
 
-// Change if using log slider
+// Change to 0 if device uses a log slider. Default 1
 #define LINEAR_SLIDER 1
+// Change to 7 if device is susceptible to RFI. Default 5
+#define SUBMIT_THRESHOLD 5
+// Change to 0.003 for more aggressive filtering. Default 0.005
+#define FILTER_ALPHA 0.005
 
 // USB MIDI object
 Adafruit_USBD_MIDI usb_midi;
@@ -238,7 +242,6 @@ void writeCc(int sliderNum, int midiValue)
 }
 
 int iterations = 0;
-float submitThreshold = 5;
 float adcValues[3] = {0};
 float filteredValues[3] = {0};
 float submittedValues[3] = {0};
@@ -263,14 +266,14 @@ void loop()
     {
         float alpha;
         float val = adcValues[i];
-        if (fabsf(val - filteredValues[i]) > 10)
+        if (fabsf(val - filteredValues[i]) > 50)
           alpha = 0.05;
         else
-          alpha = 0.005;
+          alpha = FILTER_ALPHA;
 
         filteredValues[i] = (1-alpha) * filteredValues[i] + alpha * val;
 
-        if (fabsf(filteredValues[i] - submittedValues[i]) >= submitThreshold)
+        if (fabsf(filteredValues[i] - submittedValues[i]) >= SUBMIT_THRESHOLD)
         {
             int midiValue = ((int)filteredValues[i]) >> 3;
             if (submittedMidi[i] != midiValue)
