@@ -664,31 +664,28 @@ int iterations;
 
 void setup()
 {
+    // Initial delay ensures successful startup
+    delay(100);
+    
     iterations = 0;
-    //TinyUSB_Device_Init(0);
     pinMode(LED_BUILTIN, OUTPUT);
     pinMode(A0, INPUT);
     pinMode(A1, INPUT);
     pinMode(A2, INPUT);
     pinMode(D2, INPUT);
-
     pinMode(D6, OUTPUT);
     pinMode(D7, OUTPUT);
     pinMode(D8, OUTPUT);
 
-    delay(300);
-
+    // the timing of the USB stack initialisation is critical.
+    // Extra delays or operations in this area can cause the stack to not start up correctly.
     TinyUSBDevice.setID(0xFB83, 0x5000); // 0xFB83 is an unused USB manufacturer ID.
     usb_midi.setStringDescriptor("Ghost Note Audio Conductor Mk2");
     TinyUSBDevice.setManufacturerDescriptor("Ghost Note Audio");
     TinyUSBDevice.setProductDescriptor("Conductor Mk2");
     TinyUSBDevice.setSerialDescriptor("Ghost Note Conductor Mk2");
-
     usb_midi.begin();
-    delay(100);
     Serial.begin(115200);
-    delay(100);
-
     // wait until device mounted
     while( !TinyUSBDevice.mounted() ) delay(1);
 
