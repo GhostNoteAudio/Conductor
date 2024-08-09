@@ -1,5 +1,9 @@
 # Version History
 
+## 2024-08-09
+
+Fix issues with USB initialisation, which caused some MacOS machines to fail connecting to the device.
+
 ## 2024-07-03
 
 Original firmware, currently the latest version. Installed on all sold Mark II units by default.
