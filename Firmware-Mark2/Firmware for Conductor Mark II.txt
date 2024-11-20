@@ -1,5 +1,11 @@
 # Version History
 
+## 2024-11-20
+
+Potential resolution of issue affecting a small number of users, where the controller becomes unresponsive after a period of time. 
+Disconnect/reconnect required to restore functionality. 
+!!! Currently undergoing beta testing. Not recommended for most users !!!
+
 ## 2024-08-09
 
 Fix issues with USB initialisation, which caused some MacOS machines to fail connecting to the device.

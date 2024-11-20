@@ -3,6 +3,25 @@
 #include <MIDI.h>
 #include <EEPROM.h>
 
+// IMPORTANT
+// You should apply the patch described here: https://github.com/adafruit/Adafruit_TinyUSB_Arduino/issues/293
+// There is an issue which can cause the controller to lock up after an indeterminate amount of time on *some* systems.
+// Patch (make sure you apply to the correct instance of tusb.h, you may have several):
+/*
+index 95cb55a..7dccf4e 100644
+--- a/src/tusb.c
++++ b/src/tusb.c
+@@ -118,7 +118,7 @@ bool tu_edpt_claim(tu_edpt_state_t* ep_state, osal_mutex_t mutex)
+
+   // pre-check to help reducing mutex lock
+   TU_VERIFY((ep_state->busy == 0) && (ep_state->claimed == 0));
+-  (void) osal_mutex_lock(mutex, OSAL_TIMEOUT_WAIT_FOREVER);
++  (void) osal_mutex_lock(mutex, OSAL_TIMEOUT_NORMAL); //OSAL_TIMEOUT_WAIT_FOREVER);^M
+
+   // can only claim the endpoint if it is not busy and not claimed yet.
+   bool const available = (ep_state->busy == 0) && (ep_state->claimed == 0);
+*/
+
 // Change if using log slider
 #define LINEAR_SLIDER 1
 #define MAX_SYX_LEN 500
@@ -94,8 +113,8 @@ public:
 
     void Print()
     {
-        Serial.printf("Channel: %d, MovementThreshold: %d, LowerThreshold: %d, UpperThreshold: %d, Param Number (CC/NRPN/Deadzone): %d, MinVal: %d, MaxVal: %d, Mode: %d\n", 
-            Channel, MovementThreshold, LowerThreshold, UpperThreshold, ParamNumber, MinVal, MaxVal, Mode);
+        //Serial.printf("Channel: %d, MovementThreshold: %d, LowerThreshold: %d, UpperThreshold: %d, Param Number (CC/NRPN/Deadzone): %d, MinVal: %d, MaxVal: %d, Mode: %d\n", 
+        //    Channel, MovementThreshold, LowerThreshold, UpperThreshold, ParamNumber, MinVal, MaxVal, Mode);
     }
 
 private:
@@ -234,12 +253,12 @@ private:
         data[1] = param1;
         data[2] = dataMsb;
         usb_midi.write(data, 3);
+        delayMicroseconds(500); // Seems like you can overload the buffer and crash the program
 
         data[0] = 0xB0 | Channel;
         data[1] = param2;
         data[2] = dataLsb;
         usb_midi.write(data, 3);
-
         delayMicroseconds(500); // Seems like you can overload the buffer and crash the program
     }
 
@@ -492,11 +511,11 @@ public:
         TinyUSB_Device_FlushCDC();
         TinyUSB_Device_Task();
 
-        Serial.println("Commit eeprom");
+        //Serial.println("Commit eeprom");
         EEPROM.commit();
 
         delay(200);
-        Serial.println("Reload stored settings from eeprom");
+        //Serial.println("Reload stored settings from eeprom");
         LoadSettingsFromEEPROM();
     }
 
@@ -549,11 +568,11 @@ public:
 
     bool ValidateSysex(int dataLen)
     {
-        Serial.println("Validating Sysex message");
+        //Serial.println("Validating Sysex message");
 
         if (dataLen < 14)
         {
-            Serial.println("Received incomplete Sysex Message.");
+            //Serial.println("Received incomplete Sysex Message.");
             return false;
         }
 
@@ -613,29 +632,29 @@ public:
         TinyUSB_Device_FlushCDC();
         TinyUSB_Device_Task();
         delay(50);
-        Serial.println("Done sending SysEx.");
+        //Serial.println("Done sending SysEx.");
     }
 
     void ProcessSysex()
     {
         int dataLen = sysexCount;
-        Serial.printf("Processing sysex message, %d bytes\r\n", dataLen);
+        //Serial.printf("Processing sysex message, %d bytes\r\n", dataLen);
         sysexCount = 0;
 
         // Print the message
-        for (int i = 0; i < dataLen; i++)
+        /*for (int i = 0; i < dataLen; i++)
         {
             Serial.print(sysexData[i], 16);
             Serial.print(" ");
-        }
-        Serial.println("");
+        }*/
+        //Serial.println("");
         TinyUSB_Device_FlushCDC();
         TinyUSB_Device_Task();
 
         bool valid = ValidateSysex(dataLen);
         if (!valid)
         {
-            Serial.println("Invalid Sysex message received");
+            //Serial.println("Invalid Sysex message received");
             return;
         }
 
@@ -644,12 +663,12 @@ public:
 
         if (IsRequestForDump(dataLen))
         {
-            Serial.println("Sysex Dump request, starting...");
+            //Serial.println("Sysex Dump request, starting...");
             DumpCurrentSettings();
         }
         else
         {
-            Serial.println("Sysex valid, proceeding to load settings from buffer...");
+            //Serial.println("Sysex valid, proceeding to load settings from buffer...");
             LoadSettingsFromSysexData();
             StoreSettings();
         }
@@ -685,7 +704,7 @@ void setup()
     TinyUSBDevice.setProductDescriptor("Conductor Mk2");
     TinyUSBDevice.setSerialDescriptor("Ghost Note Conductor Mk2");
     usb_midi.begin();
-    Serial.begin(115200);
+    //Serial.begin(115200);
     // wait until device mounted
     while( !TinyUSBDevice.mounted() ) delay(1);
 
