@@ -1,25 +1,79 @@
-#include <Arduino.h> // MIDI Library by Francois Best, lathoub
+#include <Arduino.h>
 #include <Adafruit_TinyUSB.h> // Included in the Pi Pico Arduino board setup, select from Tools->USB Stack // Don't install this library separately
-#include <MIDI.h>
 #include <EEPROM.h>
 
-// IMPORTANT
-// You should apply the patch described here: https://github.com/adafruit/Adafruit_TinyUSB_Arduino/issues/293
-// There is an issue which can cause the controller to lock up after an indeterminate amount of time on *some* systems.
-// Patch (make sure you apply to the correct instance of tusb.h, you may have several):
 /*
-index 95cb55a..7dccf4e 100644
---- a/src/tusb.c
-+++ b/src/tusb.c
-@@ -118,7 +118,7 @@ bool tu_edpt_claim(tu_edpt_state_t* ep_state, osal_mutex_t mutex)
+IMPORTANT
+
+The Serial interface can interfere with the Midi interface and cause deadlocks. We want to completely disable the serial interface
+for the production build of the firmware.
+
+
+Patches and changes in the Adafruit_TinyUSB_Arduino Library
+Path: \AppData\Local\Arduino15\packages\rp2040\hardware\rp2040\4.3.1\libraries\Adafruit_TinyUSB_Arduino\
+Modify the following:
+
+src\arduino\Adafruit_USBD_Device.cpp
+  Comment out the call to .begin - which causes the device to always create a serial interface
+  //SerialTinyUSB.begin(115200);
+
+src\arduino\ports\rp2040\tusb_config_rp2040.h
+  Change port numbers and buffers as follows:
+
+        #ifndef CFG_TUD_CDC
+        #define CFG_TUD_CDC 1
+        #endif
+        #ifndef CFG_TUD_MSC
+        #define CFG_TUD_MSC 0
+        #endif
+        #ifndef CFG_TUD_HID
+        #define CFG_TUD_HID 0
+        #endif
+        #ifndef CFG_TUD_MIDI
+        #define CFG_TUD_MIDI 1
+        #endif
+        #ifndef CFG_TUD_VENDOR
+        #define CFG_TUD_VENDOR 0
+        #endif
+        #ifndef CFG_TUD_VIDEO
+        #define CFG_TUD_VIDEO 0 // number of video control interfaces
+        #endif
+        #ifndef CFG_TUD_VIDEO_STREAMING
+        #define CFG_TUD_VIDEO_STREAMING 0 // number of video streaming interfaces
+        #endif
+
+        // video streaming endpoint buffer size
+        #define CFG_TUD_VIDEO_STREAMING_EP_BUFSIZE 256
+
+        // CDC FIFO size of TX and RX
+        #define CFG_TUD_CDC_RX_BUFSIZE 256
+        #define CFG_TUD_CDC_TX_BUFSIZE 256
+
+        // MSC Buffer size of Device Mass storage
+        #define CFG_TUD_MSC_EP_BUFSIZE 512
+
+        // HID buffer size Should be sufficient to hold ID (if any) + Data
+        #define CFG_TUD_HID_EP_BUFSIZE 64
+
+        // MIDI FIFO size of TX and RX
+        #define CFG_TUD_MIDI_RX_BUFSIZE 512
+        #define CFG_TUD_MIDI_TX_BUFSIZE 512
+
+        // Vendor FIFO size of TX and RX
+        #define CFG_TUD_VENDOR_RX_BUFSIZE 64
+        #define CFG_TUD_VENDOR_TX_BUFSIZE 64
+
+src\tusb.c
+
+  // You should apply the patch described here: https://github.com/adafruit/Adafruit_TinyUSB_Arduino/issues/293
+  // There is an issue which can cause the controller to lock up after an indeterminate amount of time on *some* systems.
+  // Patch (make sure you apply to the correct instance of tusb.h, you may have several):
 
    // pre-check to help reducing mutex lock
    TU_VERIFY((ep_state->busy == 0) && (ep_state->claimed == 0));
 -  (void) osal_mutex_lock(mutex, OSAL_TIMEOUT_WAIT_FOREVER);
-+  (void) osal_mutex_lock(mutex, OSAL_TIMEOUT_NORMAL); //OSAL_TIMEOUT_WAIT_FOREVER);^M
++  (void) osal_mutex_lock(mutex, OSAL_TIMEOUT_NORMAL);
 
-   // can only claim the endpoint if it is not busy and not claimed yet.
-   bool const available = (ep_state->busy == 0) && (ep_state->claimed == 0);
 */
 
 // Change if using log slider
@@ -30,10 +84,6 @@ index 95cb55a..7dccf4e 100644
 
 // USB MIDI object
 Adafruit_USBD_MIDI usb_midi;
-
-// Create a new instance of the Arduino MIDI Library,
-// and attach usb_midi as the transport.
-MIDI_CREATE_INSTANCE(Adafruit_USBD_MIDI, usb_midi, MIDI);
 
 #define MODE_CC 1
 #define MODE_PITCHBEND 2
@@ -111,12 +161,6 @@ public:
         this->PitchbendMultiplierLower = 8192.0f / (512.0f - deadspace / 2.0f);
     }
 
-    void Print()
-    {
-        //Serial.printf("Channel: %d, MovementThreshold: %d, LowerThreshold: %d, UpperThreshold: %d, Param Number (CC/NRPN/Deadzone): %d, MinVal: %d, MaxVal: %d, Mode: %d\n", 
-        //    Channel, MovementThreshold, LowerThreshold, UpperThreshold, ParamNumber, MinVal, MaxVal, Mode);
-    }
-
 private:
     float lastTransmitFloat = 0.0f;
     int lastTransmitCC = 0;
@@ -133,7 +177,6 @@ private:
                 lastTransmitCC = midiValue;
                 if (!dryrun)
                 {
-                    //Serial.printf("Submitting midiValue %d\n", midiValue);
                     WriteCc(midiValue);
                 }
             }
@@ -178,7 +221,6 @@ private:
                 lastTransmit14bit = pitchValue;
                 if (!dryrun)
                 {
-                    //Serial.printf("Submitting pitch value %d\n", pitchValue);
                     WritePitchbend(pitchValue);
                 }
             }
@@ -228,6 +270,7 @@ private:
         data[1] = ccNumber;
         data[2] = midiValue;
         usb_midi.write(data, 3);
+        TinyUSB_Device_Task();
         delayMicroseconds(500); // Seems like you can overload the buffer and crash the program
     }
 
@@ -238,6 +281,7 @@ private:
         data[1] = (value) & 0x7F;
         data[2] = (value >> 7) & 0x7F;
         usb_midi.write(data, 3);
+        TinyUSB_Device_Task();
         delayMicroseconds(500); // Seems like you can overload the buffer and crash the program
     }
 
@@ -253,12 +297,14 @@ private:
         data[1] = param1;
         data[2] = dataMsb;
         usb_midi.write(data, 3);
+        TinyUSB_Device_Task();
         delayMicroseconds(500); // Seems like you can overload the buffer and crash the program
 
         data[0] = 0xB0 | Channel;
         data[1] = param2;
         data[2] = dataLsb;
         usb_midi.write(data, 3);
+        TinyUSB_Device_Task();
         delayMicroseconds(500); // Seems like you can overload the buffer and crash the program
     }
 
@@ -358,9 +404,6 @@ public:
             btnState = 0;
         }
 
-        //if (pageChanged)
-        //    Serial.printf("New Page: %d\n", page);
-
         SetPageLed();
         return pageChanged;
     }
@@ -402,12 +445,6 @@ public:
         this->mappings = mappings;
     }
 
-    void PrintSettings()
-    {
-        //for (int i=0; i<9; i++)
-        //    mappings[i].Print();
-    }
-
     bool IsProgrammed()
     {
         uint8_t b0 = (MAGIC_CONSTANT >> 24) & 0xFF;
@@ -416,7 +453,6 @@ public:
         uint8_t b3 = (MAGIC_CONSTANT >> 0) & 0xFF;
 
         bool output = EEPROM[0] == b0 && EEPROM[1] == b1 && EEPROM[2] == b2 && EEPROM[3] == b3;
-        //Serial.printf("Unit is programmed: %d\n", output ? 1 : 0);
         return output;
     }
 
@@ -431,15 +467,12 @@ public:
         EEPROM[1] = b1;
         EEPROM[2] = b2;
         EEPROM[3] = b3;
-        //Serial.println("Setting IsProgrammed Flag magic constants");
         if (commit)
             EEPROM.commit();
     }
 
     void LoadDefaultSettings(bool storeSettings = true)
     {
-        //Serial.println("Loading default settings programmatically...");
-
         for (int i = 0; i < 9; i++)
         {
             int pn = 0;
@@ -473,32 +506,21 @@ public:
         for (int i = 0; i < 256; i++)
             temp[i] = EEPROM[4+i];
         
-        //Serial.println("Loading settings from flash memory...");
         for (int i = 0; i < 9; i++)
             mappings[i].LoadData(&temp[i*BYTES_PER_MAPPING]);
-        PrintSettings();
     }
 
     void LoadSettingsFromSysexData()
     {
-        //Serial.println("Loading settings from Sysex buffer...");
         for (int i = 0; i < 9; i++)
             mappings[i].LoadData(&sysexData[13 + i*BYTES_PER_MAPPING]);
-        PrintSettings();
     }
 
     void StoreSettings()
     {
-        //Serial.println("Storing settings in flash memory...");
-        
         // Only calling this manually because this operation can take a while and we don't want to fill the buffer
-        TinyUSB_Device_FlushCDC();
         TinyUSB_Device_Task();
-
-        PrintSettings();
-
         SetProgrammed();
-        TinyUSB_Device_FlushCDC();
         TinyUSB_Device_Task();
         delay(10);
         
@@ -508,23 +530,18 @@ public:
         }
 
         // Only calling this manually because this operation can take a while and we don't want to fill the buffer
-        TinyUSB_Device_FlushCDC();
         TinyUSB_Device_Task();
 
-        //Serial.println("Commit eeprom");
         EEPROM.commit();
 
         delay(200);
-        //Serial.println("Reload stored settings from eeprom");
         LoadSettingsFromEEPROM();
     }
 
     void ListenForSysexInput()
     {
-        //Serial.println("Listen for Sysex input...");
         while (usb_midi.available() > 0)
         {
-            //Serial.println("Data available");
             uint8_t value = usb_midi.read();
 
             if (value == 0xF0)
@@ -542,20 +559,15 @@ public:
                 AppendSysex(value);
             }
         }
-
-        //Serial.println("Exiting sysex listener function");
     }
 
     void BeginSysex()
     {
-        //Serial.println("Reset sysex message");
         sysexCount = 0;
     }
 
     void AppendSysex(uint8_t value)
     {
-        //Serial.printf("Appending sysex value: %d\n", value);
-        
         // example message (use as default values for programmed units):
         // F0  7E 67 68 6F 73 74 6E 6F 74 65 00 02  ... F7
         // SYX ID g  h  o  s  t  n  o  t  e  DEV-ID ... SYX
@@ -568,11 +580,8 @@ public:
 
     bool ValidateSysex(int dataLen)
     {
-        //Serial.println("Validating Sysex message");
-
         if (dataLen < 14)
         {
-            //Serial.println("Received incomplete Sysex Message.");
             return false;
         }
 
@@ -607,9 +616,7 @@ public:
 
     void DumpCurrentSettings()
     {
-        TinyUSB_Device_FlushCDC();
         TinyUSB_Device_Task();
-        //Serial.println("Dumping current EEPROM settings via SysEx");
 
         uint8_t startByte[1];
         uint8_t stopByte[1];
@@ -618,57 +625,39 @@ public:
         int i = 0;
 
         usb_midi.write(startByte, 1);
+        TinyUSB_Device_Task();
         delay(1);
 
         for (int k = 0; k < 9 * BYTES_PER_MAPPING; k+=BYTES_PER_MAPPING)
         {
             usb_midi.write(&EEPROM[4+k], BYTES_PER_MAPPING);
-            TinyUSB_Device_FlushCDC();
             TinyUSB_Device_Task();
             delay(6);
         }
         
         usb_midi.write(stopByte, 1);
-        TinyUSB_Device_FlushCDC();
         TinyUSB_Device_Task();
         delay(50);
-        //Serial.println("Done sending SysEx.");
     }
 
     void ProcessSysex()
     {
         int dataLen = sysexCount;
-        //Serial.printf("Processing sysex message, %d bytes\r\n", dataLen);
         sysexCount = 0;
-
-        // Print the message
-        /*for (int i = 0; i < dataLen; i++)
-        {
-            Serial.print(sysexData[i], 16);
-            Serial.print(" ");
-        }*/
-        //Serial.println("");
-        TinyUSB_Device_FlushCDC();
         TinyUSB_Device_Task();
 
         bool valid = ValidateSysex(dataLen);
         if (!valid)
-        {
-            //Serial.println("Invalid Sysex message received");
             return;
-        }
 
-        TinyUSB_Device_FlushCDC();
         TinyUSB_Device_Task();
 
         if (IsRequestForDump(dataLen))
         {
-            //Serial.println("Sysex Dump request, starting...");
             DumpCurrentSettings();
         }
         else
         {
-            //Serial.println("Sysex valid, proceeding to load settings from buffer...");
             LoadSettingsFromSysexData();
             StoreSettings();
         }
@@ -704,12 +693,8 @@ void setup()
     TinyUSBDevice.setProductDescriptor("Conductor Mk2");
     TinyUSBDevice.setSerialDescriptor("Ghost Note Conductor Mk2");
     usb_midi.begin();
-    //Serial.begin(115200);
     // wait until device mounted
     while( !TinyUSBDevice.mounted() ) delay(1);
-
-    // Todo: REMOVE before release
-    //while(!Serial) {}
 
     delay(100);
     EEPROM.begin(512);
