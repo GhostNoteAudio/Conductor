@@ -1,10 +1,19 @@
 # Version History
 
-## 2024-11-20
+## 2024-12-06
 
 Potential resolution of issue affecting a small number of users, where the controller becomes unresponsive after a period of time. 
 Disconnect/reconnect required to restore functionality. 
 !!! Currently undergoing beta testing. Not recommended for most users !!!
+
+Changelog:
+
+- Completely disable serial CDC Serial. 
+- Add TinyUSB_Device_Task calls after every usb_midi call. 
+- Remove all debugging print statements. 
+- Reduce or remove number of USB class devices entirely.
+- Increase USB Midi buffer size
+
 
 ## 2024-08-09
 
