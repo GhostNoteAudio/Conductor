@@ -282,7 +282,7 @@
                 message[startIdx + BYTES_PER_MAPPING * 9] = 0xF7;
                 sysexCommand = [...message];
                 let msg = message.map((x) => x.toString(16).padStart(2, "0").toUpperCase()).join(" ");
-                $("#sysex-textarea").text(msg);
+                $("#sysex-textarea").val(msg);
             }
 
             function readSysexDump(message) {
@@ -328,7 +328,7 @@
                     if (inputMessages.length > 20) inputMessages.shift();
                     
                     let textArea = $("#monitor-textarea");
-                    textArea.text(inputMessages.join("\n"));
+                    textArea.val(inputMessages.join("\n"));
                     textArea.scrollTop(textArea[0].scrollHeight - textArea.height());
                 }
             }
@@ -354,7 +354,7 @@
             }
 
             function copyToClipboard() {
-                navigator.clipboard.writeText($("#sysex-textarea").text());
+                navigator.clipboard.writeText($("#sysex-textarea").val());
                 alert("Sysex command copied to clipboard.");
             }
 
