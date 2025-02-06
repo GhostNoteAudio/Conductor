@@ -171,13 +171,13 @@
                     let fader = model.faders[idx];
 
                     fader.mode = $(`#mode-${i+1}`).val();
-                    fader.parameter = $(`#param-${i+1}`).val();
-                    fader.channel = $(`#channel-${i+1}`).val();
-                    fader.minValue = $(`#min-${i+1}`).val();
-                    fader.maxValue = $(`#max-${i+1}`).val();
-                    fader.moveThreshold = $(`#movement-${i+1}`).val();
-                    fader.lowerThreshold = $(`#thres-low-${i+1}`).val();
-                    fader.upperThreshold = $(`#thres-high-${i+1}`).val();
+                    fader.parameter = parseInt($(`#param-${i+1}`).val());
+                    fader.channel = parseInt($(`#channel-${i+1}`).val());
+                    fader.minValue = parseInt($(`#min-${i+1}`).val());
+                    fader.maxValue = parseInt($(`#max-${i+1}`).val());
+                    fader.moveThreshold = parseInt($(`#movement-${i+1}`).val());
+                    fader.lowerThreshold = parseInt($(`#thres-low-${i+1}`).val());
+                    fader.upperThreshold = parseInt($(`#thres-high-${i+1}`).val());
                 }
 
                 updateSysex();
@@ -308,8 +308,10 @@
             }
 
             function handleMidiInput(message) {
-                if (message.data.length === 9 * BYTES_PER_MAPPING + 2)
+                if (message.data.length === 9 * BYTES_PER_MAPPING + 2) {
+                    console.log("Received Midi Sysex data");
                     readSysexDump(message.data);
+                }
                 else
                 {
                     let msgType = message.data[0] & 0xF0;
@@ -336,7 +338,7 @@
             }
 
             function triggerDeviceDump() {
-                console.log("Bang 2");
+                console.log("Triggering device Sysex dump...");
                 let syxTrigger = [0xF0, 0x7E, 0x67, 0x68, 0x6F, 0x73, 0x74, 0x6E, 0x6F, 0x74, 0x65, 0x00, 0x02, 0x7F, 0x01, 0x7F, 0x02, 0xF7];
                 let output = midiAccess.outputs.get(midiOutputPortId);
                 output.send(syxTrigger);
@@ -345,14 +347,31 @@
             // ----------------- Button Handlers ---------------
 
             function uploadSysex() {
-                if (midiAccess == null) { updateStatus("nowebmidi"); return; }
-                if (midiOutputPortId == null) { updateStatus("nodevice"); return; }
+                updateSysex(); // just in case
 
-                let output = midiAccess.outputs.get(midiOutputPortId);
-                output.send(sysexCommand);
+                if (midiAccess == null) { 
+                    updateStatus("nowebmidi"); 
+                    alert("Unable to transmit Sysex. No access to Web MIDI."); 
+                    return; 
+                }
+                if (midiOutputPortId == null) { 
+                    updateStatus("nodevice"); 
+                    alert("Unable to transmit Sysex. Conductor Midi Device not detected."); 
+                    return; 
+                }
 
-                localStorage.setItem("lastModel", JSON.stringify(model));
-                alert("Sysex command sent!");
+                try {
+                    let output = midiAccess.outputs.get(midiOutputPortId);
+                    output.send(sysexCommand);
+
+                    localStorage.setItem("lastModel", JSON.stringify(model));
+                    alert("Sysex command sent!");
+                }
+                catch (ex) {
+                    console.log(ex);
+                    alert("Unable to transmit Sysex:\n" + ex.message);
+                }
+
             }
 
             function copyToClipboard() {
@@ -377,7 +396,7 @@
                 updateUi();
             }
 
-            $(window).on('load', () => {
+            $(document).ready(() => {
                 $(':input[type="number"]').change(updateModel);
                 $('select').change(updateModel);
                 $("#upload-button").click(uploadSysex);
@@ -579,7 +598,8 @@
                     </g>
                 </g>
                 </svg>
-            <h2 style="margin-top: 30px; margin-bottom: 10px;">Conductor Mk.II MIDI Editor</h2>
+            <h2 style="margin-top: 30px; margin-bottom: 0px;">Conductor Mk.II MIDI Editor</h2>
+            <h4 style="font-size: 7pt; margin:0; margin-bottom: 10px; padding:0;">Version: 1.2.1 (2025-02-06)</h4>
             <h4 style="font-size: 12pt; margin:0; padding:0;"><a href="./Editor.html">Open Mark I Editor</a></h4>
 
             <div id="status-box" style="margin-top: 20px; margin-bottom: 4px; width: 100%; text-align: center;">
