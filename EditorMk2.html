@@ -82,13 +82,13 @@
             class Fader {
                 constructor() {
                     this.mode = "CC";
-                    this.parameter = 0;
-                    this.channel = 0;
+                    this.parameter = 1;
+                    this.channel = 1;
                     this.minValue = 0;
-                    this.maxValue = 0;
-                    this.moveThreshold = 0;
-                    this.lowerThreshold = 0;
-                    this.upperThreshold = 0;
+                    this.maxValue = 127;
+                    this.moveThreshold = 1;
+                    this.lowerThreshold = 5;
+                    this.upperThreshold = 5;
                 }
             }
 
@@ -119,7 +119,7 @@
                         let manufacturer = port.manufacturer.toLocaleLowerCase();
                         let checkA = manufacturer.includes("ghost note") && portName.includes("conductor");
                         let checkB = portName.includes("ghost note") && portName.includes("conductor");
-                        let checkC = portName.includes("conductor mk2");
+                        let checkC = portName.includes("conductor");
                         if (checkA | checkB | checkC) {
                             midiOutputPortId = port.id;
                         }
@@ -129,7 +129,7 @@
                         let manufacturer = port.manufacturer.toLocaleLowerCase();
                         let checkA = manufacturer.includes("ghost note") && portName.includes("conductor");
                         let checkB = portName.includes("ghost note") && portName.includes("conductor");
-                        let checkC = portName.includes("conductor mk2");
+                        let checkC = portName.includes("conductor");
                         if (checkA | checkB | checkC) {
                             midiInputPortId = port.id;
                         }
