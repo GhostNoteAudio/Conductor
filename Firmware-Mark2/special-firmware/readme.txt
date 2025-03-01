@@ -1,0 +1,1 @@
+Firmware-Mark2.forced-reset.uf2 - This firmware forces all stored settings to be reset. Try applying this firmware if your device is stuck in a faulty state due to bad settings being stored.
