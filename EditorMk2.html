@@ -78,7 +78,10 @@
         </style>
 
         <script type="text/javascript">
-
+            let defaultParams = [1, 11, 7, 17, 21, 74, 2, 3, 4];
+            let factoryResetSysex = ("F0 7E 67 68 6F 73 74 6E 6F 74 65 00 02 00 01 05 05 00 01 00 00 00 7F 01 00 01 05 05 00 0B 00 00 00 7F 01 00 01 05 05 00 07 00 00 00 7F 01 00 01 05 05 00 11 00 00 00 7F 01 00 01 05 05 00 15 00 00 00 7F 01 00 01 05 05 00 18 00 00 00 7F 01 00 01 05 05 00 02 00 00 00 7F 01 00 01 05 05 00 03 00 00 00 7F 01 00 01 05 05 00 04 00 00 00 7F 01 F7"
+                .split(" ").map((x) => Number("0x" + x)));
+            
             class Fader {
                 constructor() {
                     this.mode = "CC";
@@ -234,7 +237,7 @@
                 if (modeString == "NRPN") return 3;
                 if (modeString == "RPN") return 4;
                 if (modeString == "14 Bit") return 5;
-                throw new Error("Not a valid mode");
+                return 0;
             }
 
             function getModeString(modeId) {
@@ -267,7 +270,7 @@
 
                     // hack for pitchbend - set the deadzone (repurposes the parameter value) to 64
                     let parameter = fader.mode == "Pitchbend" ? 64 : fader.parameter;
-
+                    let modeId = getModeId(fader.mode);
                     message[offset + 0] = fader.channel - 1;
                     message[offset + 1] = fader.moveThreshold;
                     message[offset + 2] = fader.lowerThreshold;
@@ -278,7 +281,11 @@
                     message[offset + 7] = ((fader.minValue) & 0x7F);
                     message[offset + 8] = ((fader.maxValue >> 7) & 0x7F);
                     message[offset + 9] = ((fader.maxValue) & 0x7F);
-                    message[offset + 10] = getModeId(fader.mode);
+                    message[offset + 10] = modeId;
+
+                    if (modeId == 0) {
+                        alert (`An error came up while generating the sysex command.\nSettings for fader ${faderIdx+1} are corrupt`);
+                    }
                 }
 
                 message[startIdx + BYTES_PER_MAPPING * 9] = 0xF7;
@@ -287,7 +294,27 @@
                 $("#sysex-textarea").val(msg);
             }
 
+            function setDefaultParameters() {
+                for (let idx = 0; idx < 9; idx++) {
+                    let fader = model.faders[idx];
+                    fader.channel = 1;
+                    fader.moveThreshold = 1;
+                    fader.lowerThreshold = 5;
+                    fader.upperThreshold = 5;
+
+                    fader.parameter = defaultParams[idx];
+                    fader.minValue = 0;
+                    fader.maxValue = 127;
+                    fader.mode = getModeString(1); // CC
+                }
+
+                updateSysex();
+                updateUi();
+            }
+
             function readSysexDump(message) {
+                let isValid = true;
+
                 for (let faderIdx = 0; faderIdx < 9; faderIdx++) {
                     let offset = 1 + faderIdx * BYTES_PER_MAPPING;
                     let fader = model.faders[faderIdx];
@@ -301,10 +328,19 @@
                     fader.maxValue = (message[offset + 8] << 7) | message[offset + 9];
 
                     fader.mode = getModeString(message[offset + 10]);
+
+                    isValid = isValid && (fader.channel >= 1) && (fader.channel <= 16);
+                    isValid = isValid && (fader.mode != "");
                 }
 
-                updateSysex();
-                updateUi();
+                if (!isValid) {
+                    alert("The Sysex received from the device may be malformed.\nSettings have been reset to default.\n\nPlease restart this editor and try again.\nIf this problem persists, try performing a factory reset on your device.");
+                    setDefaultParameters();
+                }
+                else {
+                    updateSysex();
+                    updateUi();
+                }
             }
 
             function handleMidiInput(message) {
@@ -346,7 +382,7 @@
 
             // ----------------- Button Handlers ---------------
 
-            function uploadSysex() {
+            function uploadSysex(doFactoryReset = false) {
                 updateSysex(); // just in case
 
                 if (midiAccess == null) { 
@@ -362,16 +398,26 @@
 
                 try {
                     let output = midiAccess.outputs.get(midiOutputPortId);
-                    output.send(sysexCommand);
+                    if (doFactoryReset === true)
+                        output.send(factoryResetSysex);
+                    else
+                        output.send(sysexCommand);
 
-                    localStorage.setItem("lastModel", JSON.stringify(model));
                     alert("Sysex command sent!");
                 }
                 catch (ex) {
                     console.log(ex);
                     alert("Unable to transmit Sysex:\n" + ex.message);
                 }
+            }
 
+            function factoryReset() {
+                let result = confirm("This will reset all settings to factory defaults. Continue?");
+                if (result) {
+                    uploadSysex(true);
+                    alert("Please disconnect and reconnect your Conductor and restart this editor.");
+                    setDefaultParameters();
+                }
             }
 
             function copyToClipboard() {
@@ -399,7 +445,8 @@
             $(document).ready(() => {
                 $(':input[type="number"]').change(updateModel);
                 $('select').change(updateModel);
-                $("#upload-button").click(uploadSysex);
+                $("#upload-button").click(() => uploadSysex(false));
+                $("#factory-reset-button").click(factoryReset);
                 $("#clipboard-button").click(copyToClipboard);
                 $("#download-syx-button").click(downloadSysexFile);
                 $("[id^=button-page-]").click(selectPage);
@@ -599,8 +646,7 @@
                 </g>
                 </svg>
             <h2 style="margin-top: 30px; margin-bottom: 0px;">Conductor Mk.II MIDI Editor</h2>
-            <h4 style="font-size: 7pt; margin:0; margin-bottom: 10px; padding:0;">Version: 1.2.2 (2025-02-09)</h4>
-            <h4 style="font-size: 12pt; margin:0; padding:0;"><a href="./Editor.html">Open Mark I Editor</a></h4>
+            <h4 style="font-size: 7pt; margin:0; margin-bottom: 10px; padding:0;">Version: 1.3.0 (2025-03-02)</h4>
 
             <div id="status-box" style="margin-top: 20px; margin-bottom: 4px; width: 100%; text-align: center;">
                 <div id="status-initializing" style="display:none;">Status: <i class="bi bi-hourglass-split"></i> Initializing...</div>
@@ -730,6 +776,7 @@
                 </div>
                 <div>
                     <button id="upload-button" type="button" class="btn btn-dark" style="margin-top: 10px">Upload</button>
+                    <button id="factory-reset-button" type="button" class="btn btn-danger float-end" style="margin-top: 10px">Factory Reset</button>
                 </div>
             </div>
         </div>
