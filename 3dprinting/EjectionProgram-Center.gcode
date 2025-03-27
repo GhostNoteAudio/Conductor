@@ -92,8 +92,19 @@ M83 ; use relative distances for extrusion
 M142 P1 R35 S40
 M981 S1 P20000 ;open spaghetti detector
 M73 P85 R0
+; layer num/total_layer_count: 1/1
+;M622.1 S1 ; for prev firware, default turned on
+;M1002 judge_flag timelapse_record_flag
+;M622 J1
+ ; timelapse without wipe tower
+;M971 S11 C10 O0
+;M1004 S5 P1  ; external shutter
+
+; update layer progress
 M73 L1
 M991 S0 P0 ;notify layer change
+;M106 S0
+;M106 P2 S0
 M204 S500
 M73 P86 R0
 M73 P87 R0
@@ -103,6 +114,9 @@ M73 P90 R0
 M106 S0
 M106 P2 S0
 M981 S0 P20000 ; close spaghetti detector
+; FEATURE: Custom
+
+
 
 
 ; ================== ADD MOVES BEGIN ============================
@@ -129,6 +143,9 @@ M400 P100 ; wait for motion to complete
 ; ================== ADD MOVES END ============================
 
 
+
+
+; filament end gcode 
 M106 P3 S0
 
 M400 ; wait for buffer to clear
@@ -156,6 +173,14 @@ G1 Y265
 G1 X100 F12000 ; wipe
 M621 S255
 M104 S0 ; turn off hotend
+
+;M622.1 S1 ; for prev firware, default turned on
+;M1002 judge_flag timelapse_record_flag
+;M622 J1
+;    M400 ; wait all motion done
+;    M991 S0 P-1 ;end smooth timelapse at safe pos
+;    M400 S3 ;wait for last picture to be taken
+;M623; end of "timelapse_record_flag"
 
 M400 ; wait all motion done
 M17 S
