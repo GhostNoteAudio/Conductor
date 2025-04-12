@@ -10,3 +10,5 @@ Updated firmware with slight improvements to filtering and hysteresis,
 to prevent "phantom updates" when using very long USB cables, or operating
 in an environment with lots of electromagnetic interference.
 
+If you are experiencing lots of "phantom updates" try applying the following firmware:
+"Firmware-Mark1.2024-07-28-highthreshold.uf2"
