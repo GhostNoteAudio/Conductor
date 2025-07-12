@@ -1,1 +1,3 @@
 Firmware-Mark2.forced-reset.uf2 - This firmware forces all stored settings to be reset. Try applying this firmware if your device is stuck in a faulty state due to bad settings being stored.
+
+Firmware-Mark2.extra-filtering.uf2 - This firmware is the same as the 2024-12-06 one, except it applies heavier filtering to the digitized signal, which can be helpful if you are experiencing "phantom updates" - although we recommend using the "Movement threshold" setting in the "Advanced Settings" section of the editor to combat this issue as a first choice.
